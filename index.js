@@ -91,6 +91,19 @@ app.put('/tasks/:id', (req, res)=>{
     res.json(task);
 })
 
+app.delete('/tasks/:id', (req, res)=>{
+    const id = Number(req.params.id);
+    const taskIndex = tasks.findIndex((task)=>task.id === id);
+    if(taskIndex === -1){
+        return res.status(404).json({
+            error: "Task not found"
+        })
+    }
+    tasks.splice(taskIndex, 1);
+    res.status(204).send();
+
+})
+
 app.listen(PORT, () => {
     console.log(`Server is running on http://localhost:${PORT}`);
 });
