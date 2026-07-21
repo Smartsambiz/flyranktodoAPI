@@ -130,6 +130,7 @@ flyrank-todo-api/
 ## A Note on Database Migrations
 
 Adding the `created_at` and `updated_at` columns after the app was already running meant writing migration code to detect the old schema and alter the table. This felt fragile — if another developer had a slightly different version of the database, the migration could fail silently. This is exactly why dedicated migration tools exist: they track which changes have been applied and run them in order, so you never have to guess what shape the database is in.
+![DB browswer for sqlite screenshot](./DBBrowser.png)
 
 ---
 
