@@ -17,4 +17,33 @@ if (rowCount.count === 0) {
     ('Deploy', 0)`);
 }
 
+const origPrepare = db.prepare.bind(db);
+db.prepare = function (sql) {
+  const stmt = origPrepare(sql);
+
+  const origRun = stmt.run.bind(stmt);
+  stmt.run = function (...params) {
+    params = params.map(p => typeof p === 'boolean' ? Number(p) : p);
+    return origRun(...params);
+  };
+
+  const origGet = stmt.get.bind(stmt);
+  stmt.get = function (...params) {
+    const row = origGet(...params);
+    if (row && row.done !== undefined) row.done = Boolean(row.done);
+    return row;
+  };
+
+  const origAll = stmt.all.bind(stmt);
+  stmt.all = function (...params) {
+    const rows = origAll(...params);
+    return rows.map(r => {
+      if (r && r.done !== undefined) r.done = Boolean(r.done);
+      return r;
+    });
+  };
+
+  return stmt;
+};
+
 module.exports = db;

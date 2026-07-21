@@ -8,6 +8,12 @@ app.use('/docs', swaggerUi.serve, swaggerUi.setup(openApiDocumentation));
 
 const PORT = process.env.PORT || 3000;
 
+const stmtAllTasks = db.prepare('SELECT * FROM tasks');
+const stmtGetTaskById = db.prepare('SELECT * FROM tasks WHERE id = ?');
+const stmtInsertTask = db.prepare('INSERT INTO tasks (title, done) VALUES (?, 0)');
+const stmtUpdateTask = db.prepare('UPDATE tasks SET title = ?, done = ? WHERE id = ?');
+const stmtDeleteTask = db.prepare('DELETE FROM tasks WHERE id = ?');
+
 app.get('/', (req, res) => {
     res.json({ 
         name: "Task API",
@@ -23,12 +29,12 @@ app.get('/health', (req, res)=>{
 })
 
 app.get('/tasks', (req, res) => {
-    const tasks = db.prepare('SELECT * FROM tasks').all();
+    const tasks = stmtAllTasks.all();
     res.json(tasks);
 });
 
 app.get('/tasks/:id', (req, res) => {
-    const task = db.prepare('SELECT * FROM tasks WHERE id = ?').get(Number(req.params.id));
+    const task = stmtGetTaskById.get(Number(req.params.id));
     if (task) {
         res.json(task);
     } else {
@@ -44,8 +50,8 @@ app.post('/tasks', (req, res)=>{
         })
     };
 
-    const info = db.prepare('INSERT INTO tasks (title, done) VALUES (?, 0)').run(title);
-    const newTask = db.prepare('SELECT * FROM tasks WHERE id = ?').get(Number(info.lastInsertRowid));
+    const info = stmtInsertTask.run(title);
+    const newTask = stmtGetTaskById.get(Number(info.lastInsertRowid));
 
     return res.status(201).json(newTask)
 })
@@ -59,18 +65,18 @@ app.put('/tasks/:id', (req, res)=>{
         })
     }
 
-    const info = db.prepare('UPDATE tasks SET title = ?, done = ? WHERE id = ?').run(title, done ? 1 : 0, id);
+    const info = stmtUpdateTask.run(title, done, id);
     if (info.changes === 0) {
         return res.status(404).json({ error: "Task not found" });
     }
 
-    const task = db.prepare('SELECT * FROM tasks WHERE id = ?').get(id);
+    const task = stmtGetTaskById.get(id);
     res.json(task);
 })
 
 app.delete('/tasks/:id', (req, res)=>{
     const id = Number(req.params.id);
-    const info = db.prepare('DELETE FROM tasks WHERE id = ?').run(id);
+    const info = stmtDeleteTask.run(id);
     if (info.changes === 0) {
         return res.status(404).json({ error: "Task not found" });
     }
