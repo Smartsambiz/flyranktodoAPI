@@ -8,11 +8,15 @@ app.use('/docs', swaggerUi.serve, swaggerUi.setup(openApiDocumentation));
 
 const PORT = process.env.PORT || 3000;
 
-const stmtAllTasks = db.prepare('SELECT * FROM tasks');
 const stmtGetTaskById = db.prepare('SELECT * FROM tasks WHERE id = ?');
-const stmtInsertTask = db.prepare('INSERT INTO tasks (title, done) VALUES (?, 0)');
-const stmtUpdateTask = db.prepare('UPDATE tasks SET title = ?, done = ? WHERE id = ?');
+const stmtInsertTask = db.prepare(`INSERT INTO tasks (title, done, created_at, updated_at) VALUES (?, 0, datetime('now'), datetime('now'))`);
+const stmtUpdateTask = db.prepare(`UPDATE tasks SET title = ?, done = ?, updated_at = datetime('now') WHERE id = ?`);
 const stmtDeleteTask = db.prepare('DELETE FROM tasks WHERE id = ?');
+const stmtStats = db.prepare(`SELECT
+  COUNT(*) as total,
+  SUM(CASE WHEN done = 1 THEN 1 ELSE 0 END) as completed,
+  SUM(CASE WHEN done = 0 THEN 1 ELSE 0 END) as pending
+FROM tasks`);
 
 app.get('/', (req, res) => {
     res.json({ 
@@ -29,7 +33,24 @@ app.get('/health', (req, res)=>{
 })
 
 app.get('/tasks', (req, res) => {
-    const tasks = stmtAllTasks.all();
+    let sql = 'SELECT * FROM tasks WHERE 1=1';
+    const params = [];
+
+    if (req.query.search) {
+        sql += ' AND title LIKE ?';
+        params.push(`%${req.query.search}%`);
+    }
+
+    if (req.query.done !== undefined) {
+        sql += ' AND done = ?';
+        params.push(req.query.done === 'true' ? 1 : 0);
+    }
+
+    if (req.query.sort === 'title') {
+        sql += ' ORDER BY title';
+    }
+
+    const tasks = db.prepare(sql).all(...params);
     res.json(tasks);
 });
 
@@ -40,6 +61,10 @@ app.get('/tasks/:id', (req, res) => {
     } else {
         res.status(404).json({ error: "Task not found" });
     }
+});
+
+app.get('/stats', (req, res) => {
+    res.json(stmtStats.get());
 });
 
 app.post('/tasks', (req, res)=>{
