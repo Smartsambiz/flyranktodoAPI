@@ -115,15 +115,25 @@ Interactive API documentation is available at:
 
 ```
 flyrank-todo-api/
-├── node_modules/
-├── db.js              # SQLite setup and connection
-├── index.js           # Express server and route definitions
-├── openapi.json       # OpenAPI 3.0 specification
+├── controllers/
+│   └── taskController.js   # Task CRUD logic and database queries
+├── routes/
+│   └── taskRoutes.js       # Express router — all route definitions
+├── db.js                   # SQLite setup, seeding, and type wrappers
+├── index.js                # Express app entry point (middleware + server)
+├── openapi.json            # OpenAPI 3.0 specification
 ├── package.json
 ├── package-lock.json
-├── tasks.db           # SQLite database (auto-created, git-ignored)
+├── tasks.db                # SQLite database (auto-created, git-ignored)
 └── README.md
 ```
+
+### How requests flow
+
+1. **`index.js`** sets up the Express app, registers middleware (`express.json()` for request body parsing, Swagger UI at `/docs`), and mounts the router from `routes/taskRoutes.js`.
+2. **`routes/taskRoutes.js`** maps HTTP methods + paths to controller functions. It also handles the root (`/`) and `/health` endpoints.
+3. **`controllers/taskController.js`** contains the business logic — it queries `db.js` and sends JSON responses.
+4. **`db.js`** initializes the SQLite database, creates the `tasks` table if it doesn't exist, seeds initial data, and wraps `prepare()` to auto-convert booleans to integers (and back) for the `done` column.
 
 ---
 
