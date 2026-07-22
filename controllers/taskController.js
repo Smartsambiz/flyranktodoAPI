@@ -1,90 +1,133 @@
 const db = require('../db');
 
-const stmtGetTaskById = db.prepare('SELECT * FROM tasks WHERE id = ?');
-const stmtInsertTask = db.prepare(`INSERT INTO tasks (title, done, created_at, updated_at) VALUES (?, 0, datetime('now'), datetime('now'))`);
-const stmtUpdateTask = db.prepare(`UPDATE tasks SET title = ?, done = ?, updated_at = datetime('now') WHERE id = ?`);
-const stmtDeleteTask = db.prepare('DELETE FROM tasks WHERE id = ?');
-const stmtStats = db.prepare(`SELECT
-  COUNT(*) as total,
-  SUM(CASE WHEN done = 1 THEN 1 ELSE 0 END) as completed,
-  SUM(CASE WHEN done = 0 THEN 1 ELSE 0 END) as pending
-FROM tasks`);
-
+// GET /tasks (Supports search, filter by done status, and sorting)
 const getAllTasks = async (req, res) => {
-    let sql = 'SELECT * FROM tasks WHERE 1=1';
-    const params = [];
+    try {
+        let sql = 'SELECT * FROM tasks WHERE 1=1';
+        const params = [];
 
-    if (req.query.search) {
-        sql += ' AND title LIKE ?';
-        params.push(`%${req.query.search}%`);
+        if (req.query.search) {
+            params.push(`%${req.query.search}%`);
+            sql += ` AND title ILIKE $${params.length}`; // ILIKE is case-insensitive in Postgres
+        }
+
+        if (req.query.done !== undefined) {
+            params.push(req.query.done === 'true');
+            sql += ` AND done = $${params.length}`;
+        }
+
+        if (req.query.sort === 'title') {
+            sql += ' ORDER BY title ASC';
+        } else {
+            sql += ' ORDER BY id ASC';
+        }
+
+        const { rows } = await db.query(sql, params);
+        res.json(rows);
+    } catch (err) {
+        console.error('Error in getAllTasks:', err);
+        res.status(500).json({ error: 'Internal server error' });
     }
+};
 
-    if (req.query.done !== undefined) {
-        sql += ' AND done = ?';
-        params.push(req.query.done === 'true' ? 1 : 0);
+// GET /tasks/:id
+const getTaskById = async (req, res) => {
+    try {
+        const id = Number(req.params.id);
+        const { rows } = await db.query('SELECT * FROM tasks WHERE id = $1', [id]);
+
+        if (rows.length > 0) {
+            res.json(rows[0]);
+        } else {
+            res.status(404).json({ error: 'Task not found' });
+        }
+    } catch (err) {
+        console.error('Error in getTaskById:', err);
+        res.status(500).json({ error: 'Internal server error' });
     }
+};
 
-    if (req.query.sort === 'title') {
-        sql += ' ORDER BY title';
+// GET /tasks/stats
+const getStats = async (req, res) => {
+    try {
+        const { rows } = await db.query(`
+            SELECT
+              COUNT(*)::int as total,
+              COUNT(*) FILTER (WHERE done = true)::int as completed,
+              COUNT(*) FILTER (WHERE done = false)::int as pending
+            FROM tasks
+        `);
+        res.json(rows[0]);
+    } catch (err) {
+        console.error('Error in getStats:', err);
+        res.status(500).json({ error: 'Internal server error' });
     }
+};
 
-    const tasks = db.prepare(sql).all(...params);
-    res.json(tasks);
-}
-
-const getTaskById = (req, res) => {
-    const task = stmtGetTaskById.get(Number(req.params.id));
-    if (task) {
-        res.json(task);
-    } else {
-        res.status(404).json({ error: "Task not found" });
-    }
-}
-
-const getStats = (req, res) => {
-    res.json(stmtStats.get());
-}
-
-const createTask = (req, res) => {
+// POST /tasks
+const createTask = async (req, res) => {
     const { title } = req.body;
-    if(!title){
-        return res.status(400).json({
-            error: "Title is required"
-        })
-    };
+    if (!title) {
+        return res.status(400).json({ error: 'Title is required' });
+    }
 
-    const info = stmtInsertTask.run(title);
-    const newTask = stmtGetTaskById.get(Number(info.lastInsertRowid));
+    try {
+        // RETURNING * returns the newly created row immediately (no 2nd query needed!)
+        const { rows } = await db.query(
+            `INSERT INTO tasks (title, done) VALUES ($1, $2) RETURNING *`,
+            [title, false]
+        );
 
-    return res.status(201).json(newTask)
-}
+        return res.status(201).json(rows[0]);
+    } catch (err) {
+        console.error('Error in createTask:', err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
 
-const updateTask = (req, res) => {
+// PUT /tasks/:id
+const updateTask = async (req, res) => {
     const id = Number(req.params.id);
     const { title, done } = req.body;
-    if(!title || typeof done !== "boolean"){
-        return res.status(400).json({
-            error: "Title and done are required"
-        })
+
+    if (!title || typeof done !== 'boolean') {
+        return res.status(400).json({ error: 'Title and done are required' });
     }
 
-    const info = stmtUpdateTask.run(title, done, id);
-    if (info.changes === 0) {
-        return res.status(404).json({ error: "Task not found" });
-    }
+    try {
+        // RETURNING * gives us the updated row, or empty rows array if ID didn't exist
+        const { rows } = await db.query(
+            `UPDATE tasks SET title = $1, done = $2 WHERE id = $3 RETURNING *`,
+            [title, done, id]
+        );
 
-    const task = stmtGetTaskById.get(id);
-    res.json(task);
-}
+        if (rows.length === 0) {
+            return res.status(404).json({ error: 'Task not found' });
+        }
 
-const deleteTask = (req, res) => {
-    const id = Number(req.params.id);
-    const info = stmtDeleteTask.run(id);
-    if (info.changes === 0) {
-        return res.status(404).json({ error: "Task not found" });
+        res.json(rows[0]);
+    } catch (err) {
+        console.error('Error in updateTask:', err);
+        res.status(500).json({ error: 'Internal server error' });
     }
-    res.status(204).send();
-}
+};
+
+// DELETE /tasks/:id
+const deleteTask = async (req, res) => {
+    try {
+        const id = Number(req.params.id);
+        const { rowCount } = await db.query('DELETE FROM tasks WHERE id = $1', [id]);
+
+        if (rowCount === 0) {
+            return res.status(404).json({ error: 'Task not found' });
+        }
+
+        res.status(204).send();
+    } catch (err) {
+        console.error('Error in deleteTask:', err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
 
 module.exports = {
     getAllTasks,
