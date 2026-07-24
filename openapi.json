@@ -57,6 +57,33 @@
         "/tasks": {
             "get": {
                 "summary": "Get all tasks",
+                "parameters": [
+                    {
+                        "name": "search",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "Search tasks by title"
+                    },
+                    {
+                        "name": "done",
+                        "in": "query",
+                        "schema": {
+                            "type": "boolean"
+                        },
+                        "description": "Filter tasks by completion status"
+                    },
+                    {
+                        "name": "sort",
+                        "in": "query",
+                        "schema": {
+                            "type": "string",
+                            "enum": ["title"]
+                        },
+                        "description": "Sort tasks by a supported field"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "List of tasks returned successfully",
@@ -246,26 +273,6 @@
                             "application/json": {
                                 "schema": {
                                     "$ref": "#/components/schemas/Error"
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/tasks/done": {
-            "get": {
-                "summary": "Get all completed tasks",
-                "responses": {
-                    "200": {
-                        "description": "List of completed tasks returned successfully",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "array",
-                                    "items": {
-                                        "$ref": "#/components/schemas/Task"
-                                    }
                                 }
                             }
                         }

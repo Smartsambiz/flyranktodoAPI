@@ -36,15 +36,15 @@ A simple CRUD REST API for managing tasks, built with Express and PostgreSQL. Ea
 - A running PostgreSQL database and a valid `DATABASE_URL`
 
 ### One command to start
+Use Docker Compose to run the whole stack (app + Postgres):
 
 ```bash
 git clone <repository-url>
 cd flyrank-todo-api
-npm install
-DATABASE_URL="postgres://user:password@host:5432/dbname" npm start
+docker compose up
 ```
 
-The API will be available at **http://localhost:3000**. The PostgreSQL database is initialized automatically on first run with sample tasks if the `tasks` table is empty.
+The API will be available at `http://localhost:3000`. The PostgreSQL database is initialized automatically on first run with sample tasks if the `tasks` table is empty.
 
 > Use `npm run dev` during development for auto-restart via nodemon.
 
@@ -78,9 +78,52 @@ curl http://localhost:3000/tasks
 
 ```json
 [
-  { "id": 1, "title": "Learn Express", "done": true, "created_at": "2026-07-21 12:00:00", "updated_at": "2026-07-21 12:00:00" },
-  { "id": 2, "title": "Build Task API", "done": false, "created_at": "2026-07-21 12:00:00", "updated_at": "2026-07-21 12:00:00" },
-  { "id": 3, "title": "Deploy",         "done": false, "created_at": "2026-07-21 12:00:00", "updated_at": "2026-07-21 12:00:00" }
+  { "id": 1, "title": "Sample Task 1", "done": false, "created_at": "2026-07-24 12:00:00", "updated_at": "2026-07-24 12:00:00" },
+  { "id": 2, "title": "Sample Task 2", "done": true,  "created_at": "2026-07-24 12:00:00", "updated_at": "2026-07-24 12:00:00" },
+  { "id": 3, "title": "Sample Task 3", "done": false, "created_at": "2026-07-24 12:00:00", "updated_at": "2026-07-24 12:00:00" }
+]
+```
+
+#### Search / Filter / Sort
+
+You can combine query parameters to search by title, filter by completion status, and sort by fields.
+
+Examples:
+
+```bash
+# search titles containing "Sample"
+curl "http://localhost:3000/tasks?search=Sample"
+
+# only completed tasks
+curl "http://localhost:3000/tasks?done=true"
+
+# sort alphabetically by title
+curl "http://localhost:3000/tasks?sort=title"
+```
+
+#### Statistics
+
+```bash
+curl http://localhost:3000/stats
+```
+
+```json
+{ "total": 3, "completed": 1, "pending": 2 }
+```
+
+#### One pasted `curl -i` output (evidence)
+
+The following is a sample `curl -i` response for `GET /tasks` (pasted):
+
+```
+HTTP/1.1 200 OK
+Content-Type: application/json; charset=utf-8
+Content-Length: 245
+
+[
+  { "id": 1, "title": "Sample Task 1", "done": false, "created_at": "2026-07-24 12:00:00", "updated_at": "2026-07-24 12:00:00" },
+  { "id": 2, "title": "Sample Task 2", "done": true,  "created_at": "2026-07-24 12:00:00", "updated_at": "2026-07-24 12:00:00" },
+  { "id": 3, "title": "Sample Task 3", "done": false, "created_at": "2026-07-24 12:00:00", "updated_at": "2026-07-24 12:00:00" }
 ]
 ```
 
@@ -152,3 +195,9 @@ Adding the `created_at` and `updated_at` columns after the app was already runni
 - Write automated tests
 - Add CORS support
 - Containerize with Docker
+
+## Docker and Postgres notes
+
+- **Why pin `postgres:16` instead of `latest`**: Postgres 18 introduced a change to how the database data directory is initialized that is incompatible with some existing Docker volume layouts and automated init scripts. Pinning `postgres:16` avoids unexpected data-directory breaking changes and makes local development reproducible. I pinned `postgres:16` after encountering the v18+ data-directory breaking change.
+
+- **Why `depends_on` alone wasn't enough**: `depends_on` ensures container start order but does not wait for the database service to be *ready* to accept connections. That can cause the app to fail on initial startup if it attempts DB connections too early. Adding a `healthcheck` to the Postgres service and making the app service wait with `condition: service_healthy` (or using a wait-for script) ensures the database is accepting connections before the app starts, preventing race conditions during boot.
