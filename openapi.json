@@ -252,6 +252,48 @@
                     }
                 }
             }
+        },
+        "/tasks/done": {
+            "get": {
+                "summary": "Get all completed tasks",
+                "responses": {
+                    "200": {
+                        "description": "List of completed tasks returned successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/Task"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/stats": {
+            "get": {
+                "summary": "Get task statistics",
+                "responses": {
+                    "200": {
+                        "description": "Task statistics returned successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "total": { "type": "integer", "example": 10 },
+                                        "completed": { "type": "integer", "example": 4 },
+                                        "pending": { "type": "integer", "example": 6 }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     },
     "components": {

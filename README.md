@@ -1,6 +1,6 @@
 # Task API
 
-A simple CRUD REST API for managing tasks, built with Express and SQLite. Each task has an `id`, a `title`, a `done` status, and timestamps. The API is fully documented with Swagger UI.
+A simple CRUD REST API for managing tasks, built with Express and PostgreSQL. Each task has an `id`, a `title`, a `done` status, and timestamps. The API is fully documented with Swagger UI.
 
 ---
 
@@ -14,8 +14,7 @@ A simple CRUD REST API for managing tasks, built with Express and SQLite. Each t
 - Statistics endpoint
 - Health check endpoint
 - Interactive API documentation via Swagger UI
-- Persistent SQLite storage (zero setup — auto-created on first run)
-- Task IDs reset to 1 when the table is emptied
+- Persistent PostgreSQL storage via `DATABASE_URL`
 
 ---
 
@@ -23,7 +22,8 @@ A simple CRUD REST API for managing tasks, built with Express and SQLite. Each t
 
 - **Node.js** — JavaScript runtime
 - **Express 5** — Web framework
-- **node:sqlite** — Built-in SQLite (Node 22+, no extra install)
+- **PostgreSQL** — Relational database
+- **pg** — PostgreSQL client for Node
 - **Swagger UI Express** — Interactive API docs
 
 ---
@@ -32,7 +32,8 @@ A simple CRUD REST API for managing tasks, built with Express and SQLite. Each t
 
 ### Prerequisites
 
-- [Node.js](https://nodejs.org/) v22 or later (built-in SQLite support)
+- [Node.js](https://nodejs.org/) v18 or later
+- A running PostgreSQL database and a valid `DATABASE_URL`
 
 ### One command to start
 
@@ -40,10 +41,10 @@ A simple CRUD REST API for managing tasks, built with Express and SQLite. Each t
 git clone <repository-url>
 cd flyrank-todo-api
 npm install
-npm start
+DATABASE_URL="postgres://user:password@host:5432/dbname" npm start
 ```
 
-The API will be available at **http://localhost:3000**. The `tasks.db` file is created automatically on first run with three seeded tasks — no manual setup needed.
+The API will be available at **http://localhost:3000**. The PostgreSQL database is initialized automatically on first run with sample tasks if the `tasks` table is empty.
 
 > Use `npm run dev` during development for auto-restart via nodemon.
 
@@ -119,12 +120,11 @@ flyrank-todo-api/
 │   └── taskController.js   # Task CRUD logic and database queries
 ├── routes/
 │   └── taskRoutes.js       # Express router — all route definitions
-├── db.js                   # SQLite setup, seeding, and type wrappers
+├── db.js                   # PostgreSQL setup, seeding, and query wrapper
 ├── index.js                # Express app entry point (middleware + server)
 ├── openapi.json            # OpenAPI 3.0 specification
 ├── package.json
 ├── package-lock.json
-├── tasks.db                # SQLite database (auto-created, git-ignored)
 └── README.md
 ```
 
